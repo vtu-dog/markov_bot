@@ -1,0 +1,6 @@
+**/*.rs.bk
+**/.DS_Store
+/target
+/chaindump
+Cargo.lock
+.env
