@@ -1,9 +1,6 @@
 use crate::utils::exponential_retry;
 
-use std::env;
-use std::default::Default;
-use std::io::{Cursor, Read};
-use std::sync::{Arc, Mutex};
+use std::{env, default::Default, io::{Cursor, Read}, sync::{Arc, Mutex}};
 
 use failure::format_err;
 use google_drive3::DriveHub;

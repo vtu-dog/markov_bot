@@ -1,6 +1,6 @@
 [package]
 name = "markov_bot"
-version = "2.0.2"
+version = "2.0.3"
 authors = ["Wojciech Jarząbek <WojciechJarzabek@windowslive.com>"]
 edition = "2018"
 publish = false

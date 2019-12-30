@@ -1,8 +1,4 @@
-use std::env;
-use std::fs;
-use std::io::prelude::*;
-use std::path::Path;
-use std::str;
+use std::{env, fs, io::prelude::*, path::Path, str};
 
 use base64::decode;
 use failure::{format_err, Error};

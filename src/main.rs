@@ -3,7 +3,7 @@ mod chain_wrapper;
 mod gdrive;
 mod utils;
 
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, thread, time};
 
 use dotenv::dotenv;
 use futures::future::select;
@@ -26,4 +26,6 @@ async fn main () {
 
     select(Box::pin(polling), Box::pin(sig)).await;
     chain.lock().unwrap().serialize_all();
+
+    thread::sleep(time::Duration::from_secs(10));
 }

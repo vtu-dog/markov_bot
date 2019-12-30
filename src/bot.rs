@@ -1,7 +1,6 @@
 use crate::chain_wrapper;
 
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime};
+use std::{sync::{Arc, Mutex}, time::{Duration, SystemTime}};
 
 use tbot::prelude::*;
 use tbot::types::chat::Id;

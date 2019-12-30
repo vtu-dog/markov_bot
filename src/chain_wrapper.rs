@@ -1,7 +1,6 @@
 use crate::gdrive;
 
-use std::collections::HashMap;
-use std::time::{Duration, SystemTime};
+use std::{collections::HashMap, time::{Duration, SystemTime}};
 
 use markov::Chain;
 use serde::{Deserialize, Serialize};
