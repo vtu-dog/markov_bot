@@ -5,6 +5,20 @@ use std::path::Path;
 use std::str;
 
 use base64::decode;
+use failure::{format_err, Error};
+use retry::{delay::jitter, delay::Exponential, retry};
+
+
+pub fn exponential_retry <T, U> (closure: T) -> Result<U, Error>
+where T: Fn() -> Result <U, Error> {
+    retry(
+        Exponential::from_millis(2)
+            .map(jitter)
+            .map(|x| x * 100)
+            .take(5),
+        || { closure() }
+    ).map_err(|e| format_err!("{:?}", e))
+}
 
 
 pub fn delete_file (path: &str) {
