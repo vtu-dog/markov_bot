@@ -67,7 +67,11 @@ impl ChainInfo {
         self.last_accessed = SystemTime::now();
 
         if !self.chain.is_empty() {
-            self.chain.generate_str()
+            loop {
+                let sth = self.chain.generate_str();
+                if sth.is_empty() { continue; }
+                else { break sth; }
+            }
         } else {
             String::from("[no phrases learnt]")
         }
