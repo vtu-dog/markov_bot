@@ -1,1 +1,1 @@
-web: ./target/release/markov_bot
+worker: ./target/release/markov_bot

@@ -1,6 +1,6 @@
 [package]
 name = "markov_bot"
-version = "1.0.0"
+version = "2.0.0"
 authors = ["Wojciech Jarząbek <WojciechJarzabek@windowslive.com>"]
 edition = "2018"
 publish = false
@@ -17,10 +17,16 @@ incremental = false
 overflow-checks = true
 
 [dependencies]
+base64 = "0.11.0"
 bincode = "1.2.1"
 dotenv = "0.15.0"
 futures = "0.3.1"
+google-drive3 = "1.0.12"
+hyper = "0.10.16"
+hyper-rustls = "0.6.2"
+lazy_static = "1.4.0"
 markov = "1.0.2"
 serde = "1.0.104"
 tbot = "0.3.0"
 tokio = { version = "0.2.6", features = ["macros", "sync", "signal"] }
+yup-oauth2 = "1.0.12"

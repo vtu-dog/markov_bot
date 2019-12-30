@@ -1,8 +1,6 @@
+use crate::gdrive;
+
 use std::collections::HashMap;
-use std::env;
-use std::fs;
-use std::io::prelude::*;
-use std::path::Path;
 use std::time::{Duration, SystemTime};
 
 use markov::Chain;
@@ -12,80 +10,44 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 struct ChainInfo {
     chain: Chain<String>,
-    chain_size: u64,
     chat_id: i64,
     is_learning: bool,
     last_accessed: SystemTime,
 }
 
 impl ChainInfo {
-    fn get_path (chat_id: i64) -> String {
-        format!(
-            "{}{}",
-            env::var("CHAINDUMP_DIR").expect("CHAINDUMP_DIR not set in .env"),
-            chat_id
-        )
-    }
-
-    fn del_chaindump (&self, path: &str) -> Result<(), std::io::Error> {
-        if Path::new(&path).exists() {
-            fs::remove_file(&path)
-        } else {
-            Ok(())
-        }
-    }
-
-    pub fn serialize_to_file (&self) {
-        if self.chain_size == 0 {
+    pub fn serialize_to_gdrive (&self) {
+        if self.chain.is_empty() {
             return;
+        } else {
+            let binc = bincode::serialize(&self).expect("Serialization failed");
+            gdrive::replace_file(&binc, &self.chat_id.to_string());
         }
-
-        let path = ChainInfo::get_path(self.chat_id);
-        self.del_chaindump(&path)
-            .expect("Couldn't remove old files while serializing");
-
-        let mut f = fs::OpenOptions::new()
-            .read(false)
-            .write(true)
-            .create(true)
-            .open(&path)
-            .unwrap();
-
-        let binc = bincode::serialize(&self).expect("Serialization failed");
-
-        f.write_all(&binc).expect("Write to file failed");
-        f.sync_all().expect("Synchronization failed");
     }
 
-    fn deserialize_from_file (chat_id: i64) -> Option<ChainInfo> {
-        let path = ChainInfo::get_path(chat_id);
+    fn deserialize_from_gdrive (chat_id: i64) -> Option<ChainInfo> {
+        let name = chat_id.to_string();
 
-        if Path::new(&path).exists() {
-            let mut file = fs::File::open(&path).expect("Failed to load file");
-            let mut data = Vec::new();
-            file.read_to_end(&mut data).expect("Failed to read file");
-
-            match bincode::deserialize(&data) {
+        match gdrive::download_file(&name) {
+            Some(v_u8) => match bincode::deserialize(&v_u8) {
                 Ok(c) => Some(c),
                 Err(_e) => {
-                    fs::remove_file(&path).expect("Couldn't remove corrupt file");
+                    gdrive::delete_file(&name);
                     None
                 }
-            }
-        } else {
-            None
+            },
+            None => None
         }
     }
 
     pub fn new (chat_id: i64) -> ChainInfo {
-        match ChainInfo::deserialize_from_file(chat_id) {
+        match ChainInfo::deserialize_from_gdrive(chat_id) {
             Some(mut chain_info) => {
                 chain_info.last_accessed = SystemTime::now();
                 chain_info
             }
             None => ChainInfo {
                 chain: Chain::<String>::new(),
-                chain_size: 0,
                 chat_id: chat_id,
                 is_learning: true,
                 last_accessed: SystemTime::now(),
@@ -93,19 +55,18 @@ impl ChainInfo {
         }
     }
 
-    pub fn feed (&mut self, s: &str) {
+    pub fn feed (&mut self, msg: &str) {
         self.last_accessed = SystemTime::now();
 
         if self.is_learning {
-            self.chain.feed_str(s);
-            self.chain_size += 1;
+            msg.lines().for_each(|line| { self.chain.feed_str(line); });
         }
     }
 
     pub fn generate (&mut self) -> String {
         self.last_accessed = SystemTime::now();
 
-        if self.chain_size != 0 {
+        if !self.chain.is_empty() {
             self.chain.generate_str()
         } else {
             String::from("[no phrases learnt]")
@@ -126,17 +87,15 @@ impl ChainInfo {
 
     pub fn clear_data (&mut self) {
         self.chain = Chain::<String>::new();
-        self.chain_size = 0;
         self.last_accessed = SystemTime::now();
 
-        self.del_chaindump(&ChainInfo::get_path(self.chat_id))
-            .expect("Couldn't remove file while clearing data");
+        gdrive::delete_file(&self.chat_id.to_string());
     }
 }
 
 impl Drop for ChainInfo {
     fn drop (&mut self) {
-        self.serialize_to_file();
+        self.serialize_to_gdrive();
     }
 }
 
@@ -172,18 +131,15 @@ impl ChainWrapper {
     }
 
     pub fn clear_data (&mut self, chat_id: i64) -> String {
-        match self.chains.remove(&chat_id) {
-            Some(mut c) => {
-                c.clear_data();
-            }
-            None => { /* pass */ }
+        if let Some(mut c) = self.chains.remove(&chat_id) {
+            c.clear_data();
         };
         String::from("Database cleared.")
     }
 
     pub fn serialize_all (&self) {
         for (_key, value) in self.chains.iter() {
-            value.serialize_to_file();
+            value.serialize_to_gdrive();
         }
     }
 

@@ -3,4 +3,5 @@
 /target
 /chaindump
 Cargo.lock
+credentials.json
 .env
