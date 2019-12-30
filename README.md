@@ -12,6 +12,8 @@ Chains are generated per-chat. Cross-group message generation is not supported, 
 
 Every 15 minutes, chains that weren't interacted with for 30 minutes or more will be serialized, uploaded to Google Drive and subsequently freed from memory. The file will be fetched when needed.
 
+Killing the bot via Ctrl-C will cause it to shut down without saving any changes. If you'd rather keep the chain files, you'll need to send it a SIGTERM signal (example: `$ pkill -SIGTERM markov_bot`).
+
 ## Running the project
 In order to run the program, you'll need to do some prep work:
 
