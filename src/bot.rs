@@ -141,7 +141,7 @@ pub fn create (chain: Arc<Mutex<chain_wrapper::ChainWrapper>>) -> tbot::EventLoo
         let dur = Duration::from_secs(5 * 60);
         let now = Arc::new(Mutex::new(SystemTime::now()));
 
-        bot.after_update(move |_| {
+        bot.before_update(move |_| {
             let chain = ch.clone();
             let now = now.clone();
             async move {

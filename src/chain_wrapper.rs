@@ -156,10 +156,8 @@ impl ChainWrapper {
         String::from("Database cleared.")
     }
 
-    pub fn serialize_all (&self) {
-        for (_key, value) in self.chains.iter() {
-            value.serialize_to_gdrive();
-        }
+    pub fn drop_all (&mut self) {
+        self.chains.retain(|_, _| false);
     }
 
     pub fn prune (&mut self) {

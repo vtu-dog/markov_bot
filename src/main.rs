@@ -25,7 +25,7 @@ async fn main () {
     let polling = bot.polling().start();
 
     select(Box::pin(polling), Box::pin(sig)).await;
-    chain.lock().unwrap().serialize_all();
+    chain.lock().unwrap().drop_all();
 
-    thread::sleep(time::Duration::from_secs(10));
+    thread::sleep(time::Duration::from_secs(5));
 }
