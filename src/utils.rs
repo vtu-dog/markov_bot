@@ -2,7 +2,7 @@ use std::{env, fs, io::prelude::*, path::Path, str};
 
 use base64::decode;
 use failure::{format_err, Error};
-use retry::{delay::jitter, delay::Exponential, retry};
+use retry::{retry, delay::{jitter, Exponential}};
 
 
 pub fn exponential_retry <T, U> (closure: T) -> Result<U, Error>

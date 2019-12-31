@@ -3,9 +3,7 @@ use crate::chain_wrapper;
 use std::{sync::{Arc, Mutex}, time::{Duration, SystemTime}};
 
 use tbot::prelude::*;
-use tbot::types::chat::Id;
-use tbot::types::chat::Kind::*;
-use tbot::types::parameters::Text;
+use tbot::types::{chat::{Id, Kind::*}, parameters::Text};
 
 
 pub fn create (chain: Arc<Mutex<chain_wrapper::ChainWrapper>>) -> tbot::EventLoop<impl tbot::connectors::Connector> {

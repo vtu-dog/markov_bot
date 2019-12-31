@@ -23,7 +23,7 @@ async fn main () {
     let chain = Arc::new(Mutex::new(chain_wrapper::ChainWrapper::new()));
     let bot = bot::create(chain.clone());
 
-    let polling = bot.polling().error_handler(|_| async move { }).start();
+    let polling = bot.polling().error_handler(|_| async { }).start();
 
     select(Box::pin(polling), Box::pin(sig)).await;
     chain.lock().unwrap().drop_all();

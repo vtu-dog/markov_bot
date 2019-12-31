@@ -68,7 +68,7 @@ impl ChainInfo {
     fn gen_loop (&self) -> String {
         loop {
             let sth = self.chain.generate_str();
-            if sth.is_empty() { continue; }
+            if sth.trim().is_empty() { continue; }
             else { break sth; }
         }
     }
@@ -77,11 +77,11 @@ impl ChainInfo {
         self.last_accessed = SystemTime::now();
 
         if !self.chain.is_empty() {
-            if token.is_empty() {
+            if token.trim().is_empty() {
                 self.gen_loop()
             } else {
                 let sth = self.chain.generate_str_from_token(token);
-                if sth.is_empty() {
+                if sth.trim().is_empty() {
                     self.gen_loop()
                 } else {
                     sth
