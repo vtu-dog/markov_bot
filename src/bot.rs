@@ -24,7 +24,7 @@ pub fn create (chain: Arc<Mutex<chain_wrapper::ChainWrapper>>) -> tbot::EventLoo
 
     bot.help(|context| async move {
         let msg = "You can use the following commands:\n\n\
-                   /speak - generate a new phrase\n\
+                   /speak msg - generate a new phrase (starting from msg if possible)\n\
                    /toggle_learning - enable / disable learning\n\
                    /clear_data - delete ALL data (irreversible!)\n\n\
                    Any more questions? Feature suggestions? Contact @Vyaatu or visit \
@@ -44,7 +44,7 @@ pub fn create (chain: Arc<Mutex<chain_wrapper::ChainWrapper>>) -> tbot::EventLoo
             let chain = ch.clone();
             async move {
                 let Id(id) = context.chat.id;
-                let msg = chain.lock().unwrap().generate(id);
+                let msg = chain.lock().unwrap().generate(id, &context.text.value);
                 let call_result = context.send_message(&msg).call().await;
 
                 if let Err(err) = call_result {
@@ -77,7 +77,7 @@ pub fn create (chain: Arc<Mutex<chain_wrapper::ChainWrapper>>) -> tbot::EventLoo
                     let Id(id) = context.chat.id;
                     msg.push_str(&chain.lock().unwrap().toggle_learning(id));
                 } else {
-                    msg.push_str("Insufficient permissions! Did you remember to add me as an admin?");
+                    msg.push_str("Only the chat owner and admins can do that!");
                 }
 
                 let call_result = context.send_message(&msg).call().await;
@@ -112,7 +112,7 @@ pub fn create (chain: Arc<Mutex<chain_wrapper::ChainWrapper>>) -> tbot::EventLoo
                     let Id(id) = context.chat.id;
                     msg.push_str(&chain.lock().unwrap().clear_data(id));
                 } else {
-                    msg.push_str("Insufficient permissions! Did you remember to add me as an admin?");
+                    msg.push_str("Only the chat owner can do that!");
                 }
 
                 let call_result = context.send_message(&msg).call().await;
@@ -138,7 +138,7 @@ pub fn create (chain: Arc<Mutex<chain_wrapper::ChainWrapper>>) -> tbot::EventLoo
 
     {
         let ch = Arc::clone(&chain);
-        let dur = Duration::from_secs(15 * 60);
+        let dur = Duration::from_secs(5 * 60);
         let now = Arc::new(Mutex::new(SystemTime::now()));
 
         bot.after_update(move |_| {

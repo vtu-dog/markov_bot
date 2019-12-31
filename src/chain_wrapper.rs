@@ -16,9 +16,7 @@ struct ChainInfo {
 
 impl ChainInfo {
     pub fn serialize_to_gdrive (&self) {
-        if self.chain.is_empty() {
-            return;
-        } else {
+        if !self.chain.is_empty() {
             let binc = bincode::serialize(&self).expect("Serialization failed");
             gdrive::replace_file(&binc, &self.chat_id.to_string());
         }
@@ -44,13 +42,13 @@ impl ChainInfo {
             Some(mut chain_info) => {
                 chain_info.last_accessed = SystemTime::now();
                 chain_info
-            }
+            },
             None => ChainInfo {
                 chain: Chain::<String>::new(),
                 chat_id: chat_id,
                 is_learning: true,
                 last_accessed: SystemTime::now(),
-            },
+            }
         }
     }
 
@@ -58,18 +56,36 @@ impl ChainInfo {
         self.last_accessed = SystemTime::now();
 
         if self.is_learning {
-            msg.lines().for_each(|line| { self.chain.feed_str(line); });
+            msg.lines().for_each(|line| {
+                let ln = line.trim();
+                if ln != "" {
+                    self.chain.feed_str(ln);
+                }
+            });
         }
     }
 
-    pub fn generate (&mut self) -> String {
+    fn gen_loop (&self) -> String {
+        loop {
+            let sth = self.chain.generate_str();
+            if sth.is_empty() { continue; }
+            else { break sth; }
+        }
+    }
+
+    pub fn generate (&mut self, token: &str) -> String {
         self.last_accessed = SystemTime::now();
 
         if !self.chain.is_empty() {
-            loop {
-                let sth = self.chain.generate_str();
-                if sth.is_empty() { continue; }
-                else { break sth; }
+            if token.is_empty() {
+                self.gen_loop()
+            } else {
+                let sth = self.chain.generate_str_from_token(token);
+                if sth.is_empty() {
+                    self.gen_loop()
+                } else {
+                    sth
+                }
             }
         } else {
             String::from("[no phrases learnt]")
@@ -108,7 +124,7 @@ pub struct ChainWrapper {
 }
 
 impl ChainWrapper {
-    const MAX_TIMEDELTA: Duration = Duration::from_secs(30 * 60);
+    const MAX_TIMEDELTA: Duration = Duration::from_secs(10 * 60);
 
     pub fn new () -> ChainWrapper {
         let chains = HashMap::new();
@@ -125,8 +141,8 @@ impl ChainWrapper {
         self.get_chain(chat_id).feed(s);
     }
 
-    pub fn generate (&mut self, chat_id: i64) -> String {
-        self.get_chain(chat_id).generate()
+    pub fn generate (&mut self, chat_id: i64, token: &str) -> String {
+        self.get_chain(chat_id).generate(token)
     }
 
     pub fn toggle_learning (&mut self, chat_id: i64) -> String {

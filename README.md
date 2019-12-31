@@ -10,7 +10,7 @@ Cloud-based Markov chain bot for Telegram Messenger
 
 Chains are generated per-chat. Cross-group message generation is not supported, as it quickly leads to completely nonsensical messages. Which is unfun.
 
-Every 15 minutes, chains that weren't interacted with for 30 minutes or more will be serialized, uploaded to Google Drive and subsequently freed from memory. The file will be fetched when needed.
+Every 5 minutes, chains that weren't interacted with for 10 minutes or more will be serialized, uploaded to Google Drive and subsequently freed from memory. The file will be fetched when needed.
 
 Killing the bot via Ctrl-C will cause it to shut down without saving any changes. If you'd rather keep the chain files, you'll need to send it a SIGTERM signal (example: `$ pkill -SIGTERM markov_bot`).
 
