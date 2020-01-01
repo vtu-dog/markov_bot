@@ -128,8 +128,10 @@ pub fn create (chain: Arc<Mutex<chain_wrapper::ChainWrapper>>) -> tbot::EventLoo
         bot.text(move |context| {
             let chain = ch.clone();
             async move {
-                let Id(id) = context.chat.id;
-                chain.lock().unwrap().feed(id, &context.text.value);
+                if let Some(_) = &context.from.as_ref().unwrap().username {
+                    let Id(id) = context.chat.id;
+                    chain.lock().unwrap().feed(id, &context.text.value);
+                }
             }
         });
     }
