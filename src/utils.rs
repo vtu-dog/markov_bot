@@ -6,7 +6,7 @@ use retry::{retry, delay::{jitter, Exponential}};
 
 
 pub fn exponential_retry <T, U> (closure: T) -> Result<U, Error>
-where T: Fn() -> Result <U, Error> {
+where T: Fn () -> Result <U, Error> {
     retry(
         Exponential::from_millis(2)
             .map(jitter)

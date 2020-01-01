@@ -32,7 +32,7 @@ fn create_hub () -> MyArcHub {
 }
 
 
-fn list_folder_contents (hub: &MyHub, parent_id: &str) -> google_drive3::FileList {
+fn list_folder_contents (hub: &MyHub, parent_id: &str) -> Result<google_drive3::FileList, String> {
     let req = exponential_retry(|| {
         let (_, res) = hub.files()
             .list()
@@ -44,43 +44,54 @@ fn list_folder_contents (hub: &MyHub, parent_id: &str) -> google_drive3::FileLis
     });
 
     match req {
-        Ok(elem) => elem,
-        Err(e) => panic!("list_folder_contents failed: {}", e)
+        Ok(elem) => Ok(elem),
+        Err(e) => Err(format!("list_folder_contents failed: {}", e))
     }
 }
 
 
-fn get_id_by_name (hub: &MyHub, name: &str, parent_id: &str) -> Option<String> {
-    match list_folder_contents(&hub, parent_id).files {
-        None => None,
-        Some(file_v) => {
-            let temp = file_v
-                .iter()
-                .filter(|file| file.name.clone().unwrap_or(String::new()) == name)
-                .nth(0);
+fn get_id_by_name (hub: &MyHub, name: &str, parent_id: &str) -> Result<Option<String>, String> {
+    match list_folder_contents(&hub, parent_id) {
+        Err(e) => Err(e),
+        Ok(contents) => match contents.files {
+            None => Err("list_folder_contents.files is None".to_string()),
+            Some(file_v) => {
+                let temp = file_v
+                    .iter()
+                    .filter(|file| file.name.clone().unwrap_or(String::new()) == name)
+                    .nth(0);
 
-            match temp {
-                Some(headers) => headers.id.clone(),
-                None => None
+                match temp {
+                    Some(headers) => Ok(headers.id.clone()),
+                    None => Ok(None)
+                }
             }
         }
     }
 }
 
 
-fn delete_file_by_id (hub: &MyHub, id: &str) {
-    let req = exponential_retry (|| {
-        let res = hub.files().delete(id).doit().map_err(|e| format_err!("{}", e))?;
+fn replace_file_by_id (hub: &MyHub, bytes: &[u8], id: &str) -> Option<String> {
+    let req = exponential_retry(|| {
+        let res = hub.files()
+            .update(google_drive3::File::default(), id)
+            .upload_resumable(
+                Cursor::new(bytes),
+                "application/octet-stream".parse().unwrap()
+            )
+            .map_err(|e| format_err!("{}", e))?;
+
         Ok(res)
     });
 
-    if let Err(e) = req {
-        panic!("delete_file_by_id failed: {}", e);
-    };
+    match req {
+        Ok(_) => None,
+        Err(e) => Some(format!("replace_file_by_id failed: {}", e))
+    }
 }
 
 
-fn upload_file (hub: &MyHub, bytes: &[u8], name: &str) {
+fn upload_file (hub: &MyHub, bytes: &[u8], name: &str) -> Option<String> {
     let mut req = google_drive3::File::default();
     req.name = Some(name.to_string());
     req.parents = Some(vec![PARENT.to_string()]);
@@ -97,9 +108,10 @@ fn upload_file (hub: &MyHub, bytes: &[u8], name: &str) {
         Ok(res)
     });
 
-    if let Err(e) = req {
-        panic!("upload_file failed: {}", e);
-    };
+    match req {
+        Ok(_) => None,
+        Err(e) => Some(format!("upload_file failed: {}", e))
+    }
 }
 
 
@@ -121,7 +133,7 @@ fn get_or_create_folder () -> String {
 
     let id = match req {
         Ok(elem) => elem,
-        Err(e) => panic!("get_or_create_folder failed: {}", e)
+        Err(e) => panic!("Failed to search for folders: {}", e)
     };
 
     match id.files {
@@ -147,52 +159,46 @@ pub fn initialize () {
 }
 
 
-pub fn replace_file (bytes: &[u8], name: &str) {
+pub fn update_or_create_file (bytes: &[u8], name: &str) -> Option<String> {
     let hub_arc = HUB.clone();
     let hub = hub_arc.lock().unwrap();
 
-    if let Some(id) = get_id_by_name(&hub, name, &PARENT) {
-        delete_file_by_id(&hub, &id);
-    };
-    upload_file(&hub, bytes, name);
+    if let Ok(Some(id)) = get_id_by_name(&hub, name, &PARENT) {
+        replace_file_by_id(&hub, bytes, &id)
+    } else {
+        upload_file(&hub, bytes, name)
+    }
 }
 
 
-pub fn delete_file (name: &str) {
-    let hub_arc = HUB.clone();
-    let hub = hub_arc.lock().unwrap();
-
-    if let Some(id) = get_id_by_name(&hub, name, &PARENT) {
-        delete_file_by_id(&hub, &id);
-    };
-}
-
-
-pub fn download_file (name: &str) -> Option<Vec<u8>> {
+pub fn download_file (name: &str) -> Result<Option<Vec<u8>>, String> {
     let hub_arc = HUB.clone();
     let hub = hub_arc.lock().unwrap();
 
     match get_id_by_name(&hub, name, &PARENT) {
-        Some(file_id) => {
-            let req = exponential_retry(|| {
-                let (res, _) = hub.files().get(&file_id)
-                    .add_scope(google_drive3::Scope::Full)
-                    .param("alt", "media")
-                    .doit()
-                    .map_err(|e| format_err!("{}", e))?;
+        Err(e) => Err(e),
+        Ok(value) => match value {
+            None => Ok(None),
+            Some(file_id) => {
+                let req = exponential_retry(|| {
+                    let (res, _) = hub.files().get(&file_id)
+                        .add_scope(google_drive3::Scope::Full)
+                        .param("alt", "media")
+                        .doit()
+                        .map_err(|e| format_err!("{}", e))?;
 
-                Ok(res)
-            });
+                    Ok(res)
+                });
 
-            match req {
-                Ok(mut response) => {
-                    let mut content: Vec<u8> = Vec::new();
-                    response.read_to_end(&mut content).expect("Failed to write to Vec<u8>");
-                    Some(content)
-                },
-                Err(e) => panic!("download_file failed: {}", e)
+                match req {
+                    Ok(mut response) => {
+                        let mut content: Vec<u8> = Vec::new();
+                        response.read_to_end(&mut content).expect("Failed to write to Vec<u8>");
+                        Ok(Some(content))
+                    },
+                    Err(e) => Err(format!("Failed to download file: {}", e))
+                }
             }
-        },
-        None => None
+        }
     }
 }
