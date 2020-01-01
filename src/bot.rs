@@ -1,6 +1,6 @@
 use crate::chain_wrapper;
 
-use std::{sync::{Arc, Mutex}, thread, time};
+use std::{sync::{Arc, Mutex}, time};
 
 use tbot::prelude::*;
 use tbot::types::{chat::{Id, Kind::*}, parameters::Text};
@@ -136,7 +136,7 @@ pub fn create (chain: Arc<Mutex<chain_wrapper::ChainWrapper>>) -> tbot::EventLoo
 
     {
         let ch = Arc::clone(&chain);
-        let dur = time::Duration::from_secs(5 * 60);
+        let dur = time::Duration::from_secs(15 * 60);
         let now = Arc::new(Mutex::new(time::SystemTime::now()));
 
         bot.before_update(move |_| {
@@ -147,7 +147,6 @@ pub fn create (chain: Arc<Mutex<chain_wrapper::ChainWrapper>>) -> tbot::EventLoo
                 if now.elapsed().unwrap() > dur {
                     *now = time::SystemTime::now();
                     chain.lock().unwrap().prune();
-                    thread::sleep(time::Duration::from_secs(5));
                 }
             }
         });

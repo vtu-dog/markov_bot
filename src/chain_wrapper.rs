@@ -1,6 +1,6 @@
 use crate::gdrive;
 
-use std::{collections::HashMap, time::{Duration, SystemTime}};
+use std::{collections::HashMap, time::{Duration, SystemTime}, thread};
 
 use markov::Chain;
 use serde::{Deserialize, Serialize};
@@ -37,6 +37,10 @@ impl ChainInfo {
         }
     }
 
+    fn touch (&mut self) {
+        self.last_accessed = SystemTime::now();
+    }
+
     pub fn new (chat_id: i64) -> ChainInfo {
         match ChainInfo::deserialize_from_gdrive(chat_id) {
             Some(mut chain_info) => {
@@ -53,7 +57,7 @@ impl ChainInfo {
     }
 
     pub fn feed (&mut self, msg: &str) {
-        self.last_accessed = SystemTime::now();
+        self.touch();
 
         if self.is_learning {
             msg.lines().for_each(|line| {
@@ -74,7 +78,7 @@ impl ChainInfo {
     }
 
     pub fn generate (&mut self, token: &str) -> String {
-        self.last_accessed = SystemTime::now();
+        self.touch();
 
         if !self.chain.is_empty() {
             if token.trim().is_empty() {
@@ -93,7 +97,7 @@ impl ChainInfo {
     }
 
     pub fn toggle_learning (&mut self) -> String {
-        self.last_accessed = SystemTime::now();
+        self.touch();
 
         if self.is_learning {
             self.is_learning = false;
@@ -105,9 +109,8 @@ impl ChainInfo {
     }
 
     pub fn clear_data (&mut self) {
+        self.touch();
         self.chain = Chain::<String>::new();
-        self.last_accessed = SystemTime::now();
-
         gdrive::delete_file(&self.chat_id.to_string());
     }
 }
@@ -124,7 +127,7 @@ pub struct ChainWrapper {
 }
 
 impl ChainWrapper {
-    const MAX_TIMEDELTA: Duration = Duration::from_secs(10 * 60);
+    const MAX_TIMEDELTA: Duration = Duration::from_secs(30 * 60);
 
     pub fn new () -> ChainWrapper {
         let chains = HashMap::new();
@@ -160,9 +163,14 @@ impl ChainWrapper {
         self.chains.retain(|_, _| false);
     }
 
+    fn is_old (elem: &ChainInfo) -> bool {
+        elem.last_accessed.elapsed().unwrap() > ChainWrapper::MAX_TIMEDELTA
+    }
+
     pub fn prune (&mut self) {
-        self.chains.retain(|_key, value| {
-            value.last_accessed.elapsed().unwrap() < ChainWrapper::MAX_TIMEDELTA
-        })
+        if self.chains.iter().filter(|(_, x)| ChainWrapper::is_old(x)).count() != 0 {
+            self.chains.retain(|_, x| { !ChainWrapper::is_old(x) });
+            thread::sleep(Duration::from_secs(5));
+        }
     }
 }
