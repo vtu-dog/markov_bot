@@ -1,7 +1,8 @@
 use crate::gdrive;
 
-use std::{collections::HashMap, time::{Duration, SystemTime}};
+use std::{collections::HashMap, time::{Duration, SystemTime}, env};
 
+use lazy_static::lazy_static;
 use markov::Chain;
 use serde::{Deserialize, Serialize};
 
@@ -78,15 +79,18 @@ impl ChainInfo {
         }
     }
 
-    fn gen_loop (&self) -> String {
-        loop {
+    fn gen_loop (&self) -> Option<String> {
+        let mut res = None;
+        for _ in 0..10 {
             let sth = self.chain.generate_str();
             if sth.trim().is_empty() { continue; }
-            else { break sth; }
+            else { res = Some(sth); break; }
         }
+
+        res
     }
 
-    pub fn generate (&mut self, token: &str) -> String {
+    pub fn generate (&mut self, token: &str) -> Option<String> {
         self.touch();
 
         if !self.chain.is_empty() {
@@ -97,11 +101,11 @@ impl ChainInfo {
                 if sth.trim().is_empty() {
                     self.gen_loop()
                 } else {
-                    sth
+                    Some(sth)
                 }
             }
         } else {
-            String::from("[no phrases learnt]")
+            Some(String::from("[no phrases learnt]"))
         }
     }
 
@@ -136,21 +140,33 @@ impl Drop for ChainInfo {
 }
 
 
+fn get_max_timedelta () -> Duration {
+    let minutes = env::var("MAX_TIMEDELTA")
+        .expect("MAX_TIMEDELTA not set")
+        .parse::<u64>()
+        .unwrap();
+
+    Duration::from_secs(minutes * 60)
+}
+
+lazy_static! {
+    static ref MAX_TIMEDELTA: Duration = get_max_timedelta();
+    static ref COMMAND_FAILED: &'static str = "[command failed, please try again later]";
+}
+
+
 pub struct ChainWrapper {
     chains: HashMap<i64, ChainInfo>,
 }
 
 impl ChainWrapper {
-    const MAX_TIMEDELTA: Duration = Duration::from_secs(30 * 60);
-    const COMMAND_FAILED: &'static str = "[command failed, please try again later]";
-
     pub fn new () -> ChainWrapper {
         let chains = HashMap::new();
         ChainWrapper { chains: chains }
     }
 
     fn err_msg () -> String {
-        String::from(ChainWrapper::COMMAND_FAILED)
+        COMMAND_FAILED.to_string()
     }
 
     fn get_chain (&mut self, chat_id: i64) -> Result<&mut ChainInfo, String> {
@@ -176,7 +192,10 @@ impl ChainWrapper {
 
     pub fn generate (&mut self, chat_id: i64, token: &str) -> String {
         match self.get_chain(chat_id) {
-            Ok(chain) => chain.generate(token),
+            Ok(chain) => match chain.generate(token) {
+                Some(s) => s,
+                None => ChainWrapper::err_msg()
+            },
             Err(e) => {
                 dbg!(e);
                 ChainWrapper::err_msg()
@@ -212,7 +231,7 @@ impl ChainWrapper {
     }
 
     fn is_old (elem: &ChainInfo) -> bool {
-        elem.last_accessed.elapsed().unwrap() > ChainWrapper::MAX_TIMEDELTA
+        elem.last_accessed.elapsed().unwrap() > *MAX_TIMEDELTA
     }
 
     pub fn prune (&mut self) {

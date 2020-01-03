@@ -1,6 +1,6 @@
 use crate::chain_wrapper;
 
-use std::{sync::{Arc, Mutex}, time};
+use std::{sync::{Arc, Mutex}, env, time};
 
 use tbot::prelude::*;
 use tbot::types::{chat::{Id, Kind::*}, parameters::Text};
@@ -63,7 +63,7 @@ pub fn create (chain: Arc<Mutex<chain_wrapper::ChainWrapper>>) -> tbot::EventLoo
                     match context.from.as_ref() {
                         Some(usr) => {
                             let status = context.get_chat_member(usr.id).call().await.unwrap().status;
-                            status.is_administator() || status.is_creator()
+                            status.is_administrator() || status.is_creator()
                         },
                         None => true
                     }
@@ -139,8 +139,13 @@ pub fn create (chain: Arc<Mutex<chain_wrapper::ChainWrapper>>) -> tbot::EventLoo
     }
 
     {
+        let upd_freq = env::var("UPDATE_FREQUENCY")
+            .expect("UPDATE_FREQUENCY not set")
+            .parse::<u64>()
+            .unwrap();
+
         let ch = Arc::clone(&chain);
-        let dur = time::Duration::from_secs(15 * 60);
+        let dur = time::Duration::from_secs(upd_freq * 60);
         let now = Arc::new(Mutex::new(time::SystemTime::now()));
 
         bot.before_update(move |_| {
