@@ -1,4 +1,5 @@
 use crate::chain_wrapper;
+use crate::utils::exponential_retry_async;
 
 use std::{
     env,
@@ -24,7 +25,8 @@ pub fn create(
         let msg = "Hi! Add me to a group as an administrator to begin your \
                    Markov adventure.\nWant to know more? Use /help.";
 
-        let call_result = context.send_message(msg).call().await;
+        let call_result =
+            exponential_retry_async(|| async { Ok(context.send_message(msg).call().await?) }).await;
 
         if let Err(err) = call_result {
             dbg!(err);
@@ -40,7 +42,10 @@ pub fn create(
                    Any more questions? Feature suggestions? Contact @Vyaatu or visit \
                    <a href=\"https://github.com/vyatu/markov_bot\">project's GitHub page</a>";
 
-        let call_result = context.send_message(Text::html(msg)).call().await;
+        let call_result = exponential_retry_async(|| async {
+            Ok(context.send_message(Text::html(msg)).call().await?)
+        })
+        .await;
 
         if let Err(err) = call_result {
             dbg!(err);
@@ -55,7 +60,11 @@ pub fn create(
             async move {
                 let Id(id) = context.chat.id;
                 let msg = chain.lock().unwrap().generate(id, &context.text.value);
-                let call_result = context.send_message(&msg).call().await;
+
+                let call_result = exponential_retry_async(|| async {
+                    Ok(context.send_message(&msg).call().await?)
+                })
+                .await;
 
                 if let Err(err) = call_result {
                     dbg!(err);
@@ -95,7 +104,10 @@ pub fn create(
                     msg.push_str("[only the chat owner and admins can do that]");
                 }
 
-                let call_result = context.send_message(&msg).call().await;
+                let call_result = exponential_retry_async(|| async {
+                    Ok(context.send_message(&msg).call().await?)
+                })
+                .await;
 
                 if let Err(err) = call_result {
                     dbg!(err);
@@ -135,7 +147,10 @@ pub fn create(
                     msg.push_str("[only the chat owner can do that]");
                 }
 
-                let call_result = context.send_message(&msg).call().await;
+                let call_result = exponential_retry_async(|| async {
+                    Ok(context.send_message(&msg).call().await?)
+                })
+                .await;
 
                 if let Err(err) = call_result {
                     dbg!(err);

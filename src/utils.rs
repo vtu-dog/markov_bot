@@ -1,26 +1,49 @@
-use std::{env, fs, io::prelude::*, path::Path, str};
+use std::{env, fs, io::prelude::*, path::Path, str, time::Duration};
 
 use base64::decode;
 use failure::{format_err, Error};
+use futures::future::Future;
 use retry::{
     delay::{jitter, Exponential},
     retry,
 };
 
-// takes a Fn closure that returns a Result<U, Error>
-// calls the closure until it returns Ok or fails 5 times
-pub fn exponential_retry<T, U>(closure: T) -> Result<U, Error>
+// returns a Vec of 5 durations with a random jitter
+fn random_durations() -> Vec<Duration> {
+    Exponential::from_millis(2)
+        .map(jitter)
+        .map(|x| x * 100)
+        .take(5)
+        .collect()
+}
+
+// takes a Fn closure that returns a Result<T, Error>
+// calls the closure until it either returns Ok or fails enough times
+pub fn exponential_retry<C, T>(closure: C) -> Result<T, Error>
 where
-    T: Fn() -> Result<U, Error>,
+    C: Fn() -> Result<T, Error>,
 {
-    retry(
-        Exponential::from_millis(2)
-            .map(jitter)
-            .map(|x| x * 100)
-            .take(5),
-        || closure(),
-    )
-    .map_err(|e| format_err!("{:?}", e))
+    retry(random_durations(), || closure()).map_err(|e| format_err!("{:?}", e))
+}
+
+// an asynchronous variation of exponential_retry
+pub async fn exponential_retry_async<C, F, T>(closure: C) -> Result<T, Error>
+where
+    C: Fn() -> F,
+    F: Future<Output = Result<T, Error>>,
+{
+    let mut err = None;
+    for duration in random_durations() {
+        tokio::time::delay_for(duration).await;
+        match closure().await {
+            Ok(result) => return Ok(result),
+            Err(e) => {
+                err = Some(e);
+            }
+        }
+    }
+
+    Err(err.unwrap())
 }
 
 // deletes a file from a filesystem
