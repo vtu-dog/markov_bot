@@ -187,7 +187,7 @@ pub fn create(
         let now = Arc::new(Mutex::new(time::SystemTime::now()));
 
         // add a callback for periodic serialization
-        bot.before_update(move |_| {
+        bot.after_update(move |_| {
             let chain = ch.clone();
             let now = now.clone();
             async move {
