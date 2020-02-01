@@ -118,12 +118,14 @@ impl ChainInfo {
                 self.gen_loop()
             } else {
                 // some words were provided after /speak
-                let sth = self.chain.generate_str_from_token(token);
-                if sth.trim().is_empty() {
+                let phrase = self
+                    .chain
+                    .generate_str_from_token(token.split(" ").next().unwrap());
+                if phrase.trim().is_empty() {
                     // no message beginning with the given word can be generated
                     self.gen_loop()
                 } else {
-                    Some(sth)
+                    Some(phrase)
                 }
             }
         } else {
@@ -230,7 +232,13 @@ impl ChainWrapper {
     pub fn generate(&mut self, chat_id: i64, token: &str) -> String {
         match self.get_chain(chat_id) {
             Ok(chain) => match chain.generate(token) {
-                Some(s) => s,
+                Some(s) => {
+                    if s.trim().is_empty() {
+                        ChainWrapper::err_msg()
+                    } else {
+                        s
+                    }
+                }
                 None => ChainWrapper::err_msg(),
             },
             Err(e) => {

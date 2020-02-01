@@ -2,6 +2,5 @@
 **/.DS_Store
 /target
 /chaindump
-Cargo.lock
 credentials.json
 .env
